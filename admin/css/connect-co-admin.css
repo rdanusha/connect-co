@@ -1,0 +1,26 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+.connect-co-success {
+    border: 1px solid #0c8a08;
+    border-left: 3px solid #0c8a08;
+    padding: 5px;
+    background-color: #d2f5d8;
+    margin-bottom: 2px;
+
+}
+
+.connect-co-error {
+    border: 1px solid #f90909;
+    border-left: 3px solid #f90909;
+    padding: 5px;
+    background-color: #f1cece;
+    margin-bottom: 2px;
+}
+
+.connect-co-container {
+    border: 2px double #fedc00;
+    padding: 5px;
+    background-color: #f8eaae;
+}
