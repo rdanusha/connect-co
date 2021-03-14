@@ -7,8 +7,7 @@
     border-left: 3px solid #0c8a08;
     padding: 5px;
     background-color: #d2f5d8;
-    margin-bottom: 2px;
-
+    margin: 10px 0px 2px;
 }
 
 .connect-co-error {
@@ -16,11 +15,32 @@
     border-left: 3px solid #f90909;
     padding: 5px;
     background-color: #f1cece;
-    margin-bottom: 2px;
+    margin: 10px 0px 2px;
 }
 
 .connect-co-container {
-    border: 2px double #fedc00;
+    border: 2px double #ffdd36;
     padding: 5px;
-    background-color: #f8eaae;
+    background-color: #ffe262;
+}
+
+.connect-co-container label{
+   font-weight: bold;
+}
+
+ul.connect-co-error-items{
+    list-style-type: none;
+    line-height: 1.1;
+    padding: 0;
+    margin: 0;
+
+}
+
+.connect-co-delivery-cost{
+    border: 1px solid #000000;
+    padding: 5px;
+    background-color: #ffdd36;
+    text-align: center;
+    font-size: larger;
+    margin-top: 10px;
 }

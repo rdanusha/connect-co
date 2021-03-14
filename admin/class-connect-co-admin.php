@@ -100,8 +100,8 @@ class Connect_Co_Admin
 
         $this->connect_co = $connect_co;
         $this->version = $version;
-        $this->connect_co_api = "http://testbed.connectcoapps.lk/api/";
-        $this->connect_co_api_key = "test321-";
+        $this->connect_co_api = "http://connectcoapps.lk/api/";
+        $this->connect_co_api_key = "Nuk010211WQAASdc";
         $this->set_connect_co_merchant_api_settings();
 
     }
@@ -194,14 +194,9 @@ class Connect_Co_Admin
          *  include settings page UI
          */
         $config = $this->connect_co_settings_page_config();
-        if(!$config){
-            update_option('connect_co_admin_notification', true);
-            update_option('connect_co_admin_notification',
-                json_encode(array('error', 'Something went wrong in Connect Co. plugin. Please try again.', false)));
-        }
-
         require_once plugin_dir_path(dirname(__FILE__)) . 'admin/partials/connect-co-admin-display.php';
     }
+
 
     /**
      * Callback function for the woocommerce order edit custom fields.
@@ -214,7 +209,6 @@ class Connect_Co_Admin
          *  include order details custom field section
          */
         $config = $this->connect_co_order_details_page_config($order);
-
         if ($config) {
             require_once plugin_dir_path(dirname(__FILE__)) . 'admin/partials/connect-co-admin-order-details-edit-display.php';
         }
@@ -273,7 +267,7 @@ class Connect_Co_Admin
 
                 $this->set_connect_co_merchant_api_settings();
                 update_option('connect_co_admin_notification',
-                    json_encode(array('updated', 'Settings saved.', true)));
+                    json_encode(array('success', 'Settings saved.', true)));
             }
         }
         wp_redirect($_SERVER['HTTP_REFERER']);
@@ -284,14 +278,19 @@ class Connect_Co_Admin
     {
         $response = wp_remote_request($url, $args);
 
-        if (is_wp_error($response) || $response['response']['code'] != 200) {
-            if ($response['response']['code'] == 422) {
-                $body = wp_remote_retrieve_body($response);
-                return json_decode($body);
-            }
+        if (is_wp_error($response)) {
             Connect_Co_Admin::write_log($response);
             return false;
         }
+        if ($response['response']['code'] == 422) {
+            $body = wp_remote_retrieve_body($response);
+            return json_decode($body);
+        }
+        if ($response['response']['code'] != 200) {
+            Connect_Co_Admin::write_log($response);
+            return false;
+        }
+
         $body = wp_remote_retrieve_body($response);
         $decode_response = json_decode($body);
         if ($decode_response->status != 'success') {
@@ -364,6 +363,18 @@ class Connect_Co_Admin
         }
     }
 
+    public function get_pickup_location_by_id($location_id)
+    {
+        $pickup_locations = $this->get_merchant_pickup_locations();
+        if ($pickup_locations) {
+            foreach ($pickup_locations as $pickup_location) {
+                if ($pickup_location->id == $location_id) {
+                    return $pickup_location;
+                }
+            }
+        }
+    }
+
     public function connect_co_order_details_page_config($order)
     {
         $settings = $this->get_order_details_page_config_settings();
@@ -376,10 +387,11 @@ class Connect_Co_Admin
         $cites = $this->make_cities_array($settings->cities);
 
         $delivery_city_availability = $this->delivery_city_availability_check($cites, $order);
-        if (!$delivery_city_availability) {
-            update_option('connect_co_admin_notification',
-                json_encode(array('error', 'Connect Co. delivery is not available for the city of shipping address. Please choose the nearest city.', false)));
-        }
+
+//        if (!$delivery_city_availability) {
+//            update_option('connect_co_admin_notification',
+//                json_encode(array('error', 'Connect Co. delivery is not available for the city of shipping address. Please choose the nearest city.', false)));
+//        }
 
         //**START SET CONNECT CO DELIVERY INFORMATION SECTION FROM FIELDS**//
         $pickup_location_field_options = $this->get_pickup_location_field_options($order);
@@ -413,28 +425,30 @@ class Connect_Co_Admin
      */
     public function connect_co_admin_notifications()
     {
+        $screen = get_current_screen();
+
+        if (!in_array($screen->id, array('settings_page_connect-co-admin', 'shop_order'))) return;
+
         $notifications = get_option('connect_co_admin_notification');
 
         if (!empty($notifications)) {
 
             $notifications = json_decode($notifications);
+            $error_type = $notifications[0];
+            $message = $notifications[1];
+            $is_dismissible = (isset($notifications[2]) && $notifications[2] == true) ? 'is-dismissible' : "";
 
-            switch ($notifications[0]) {
+            switch ($error_type) {
                 case 'error': # red
-                case 'updated': # green
-                case 'update-nag': # ?
-                    $class = $notifications[0];
+                case 'warning': # yellow
+                case 'success': # green
+                case 'info': # blue
+                    $class = "notice-$error_type";
                     break;
                 default:
                     # Defaults to error just in case
                     $class = 'error';
                     break;
-            }
-
-            $is_dismissible = '';
-
-            if (isset($notifications[2]) && $notifications[2] == true) {
-                $is_dismissible = 'is-dismissible';
             }
 
             require_once plugin_dir_path(dirname(__FILE__)) . 'admin/partials/connect-co-admin-notices.php';
@@ -464,42 +478,107 @@ class Connect_Co_Admin
             $order_id = (isset($_POST['order_id'])) ? $_POST['order_id'] : '';
 
             if (!empty($cc_pickup_location) && !empty($cc_payment_type) && !empty($cc_delivery_type) &&
-                !empty($cc_package_weight) && !empty($cc_package_size) && !empty($cc_notes) &&
-                !empty($cc_city) && !empty($order_id)
+                !empty($cc_package_weight) && !empty($cc_package_size) && !empty($cc_city) && !empty($order_id)
             ) {
 
                 $order = wc_get_order($order_id);
+                $shipping_first_name = $order->get_shipping_first_name();
+                $shipping_last_name = $order->get_shipping_last_name();
+                $billing_phone = $order->get_billing_phone();
 
-                if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
-                    update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);
-                }
-                if (!add_post_meta($order_id, 'cc_payment_type', $cc_payment_type, true)) {
-                    update_post_meta($order_id, 'cc_payment_type', $cc_payment_type);
-                }
-                if (!add_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type, true)) {
-                    update_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type);
-                }
-                if (!add_post_meta($order_id, 'cc_package_weight', $cc_package_weight, true)) {
-                    update_post_meta($order_id, 'cc_package_weight', $cc_package_weight);
-                }
-                if (!add_post_meta($order_id, 'cc_package_size', $cc_package_size, true)) {
-                    update_post_meta($order_id, 'cc_package_size', $cc_package_size);
-                }
-                if (!add_post_meta($order_id, 'cc_notes', $cc_notes, true)) {
-                    update_post_meta($order_id, 'cc_notes', $cc_notes);
-                }
-                if (!add_post_meta($order_id, 'cc_city', $cc_city, true)) {
-                    update_post_meta($order_id, 'cc_city', $cc_city);
-                }
-                if (!add_post_meta($order_id, 'cc_submit', true, true)) {
-                    update_post_meta($order_id, 'cc_submit', true);
+                $billing_email = $order->get_billing_email();
+                $shipping_address = $order->get_address('shipping');
+
+                $location = $this->get_pickup_location_by_id($cc_pickup_location);
+                $latitude = '';
+                $longitude = '';
+                $pickup_location = '';
+
+                $order_items = $this->get_order_items($order_id);
+
+                if ($location) {
+                    $latitude = $location->latitude;
+                    $longitude = $location->longitude;
+                    $pickup_location = $location->address;
                 }
 
-
-                $data = array(
-                    'status' => 'success',
-                    'message' => array('Order submitted success.')
+                $args = array(
+                    "order_reference" => $order_id,
+                    "pickup_location" => $pickup_location,
+                    "pickup_lat" => $latitude,
+                    "pickup_lng" => $longitude,
+                    "customer_name" => $shipping_first_name . ' ' . $shipping_last_name,
+                    "customer_email" => $billing_email,
+                    "delivery_location" => implode(', ', $shipping_address),
+                    "nearest_delivery_location" => $cc_city,
+                    "contact_1" => $billing_phone,
+                    "contact_2" => "",
+                    "location_url" => "",
+                    "payment_type" => $cc_payment_type,
+                    "amount_to_be_collected" => 100,
+                    "package_weight" => $cc_package_weight,
+                    "package_size" => $cc_package_size,
+                    "delivery_type" => $cc_delivery_type,
+                    "scheduled_date" => "ssss",
+                    "scheduled_tw" => "tw1",
+                    "notes" => $cc_notes,
+                    "order_items" => $order_items,
+                    "provider" => "W"
                 );
+
+
+                $response = $this->create_connect_co_order($args);
+
+                if ($response) {
+                    if (isset($response->status) && $response->status == 'success') {
+                        if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
+                            update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);
+                        }
+                        if (!add_post_meta($order_id, 'cc_payment_type', $cc_payment_type, true)) {
+                            update_post_meta($order_id, 'cc_payment_type', $cc_payment_type);
+                        }
+                        if (!add_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type, true)) {
+                            update_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type);
+                        }
+                        if (!add_post_meta($order_id, 'cc_package_weight', $cc_package_weight, true)) {
+                            update_post_meta($order_id, 'cc_package_weight', $cc_package_weight);
+                        }
+                        if (!add_post_meta($order_id, 'cc_package_size', $cc_package_size, true)) {
+                            update_post_meta($order_id, 'cc_package_size', $cc_package_size);
+                        }
+                        if (!add_post_meta($order_id, 'cc_notes', $cc_notes, true)) {
+                            update_post_meta($order_id, 'cc_notes', $cc_notes);
+                        }
+                        if (!add_post_meta($order_id, 'cc_city', $cc_city, true)) {
+                            update_post_meta($order_id, 'cc_city', $cc_city);
+                        }
+                        if (!add_post_meta($order_id, 'cc_submit', true, true)) {
+                            update_post_meta($order_id, 'cc_submit', true);
+                        }
+                        if (isset($response->order_tracking_link)) {
+                            if (!add_post_meta($order_id, 'cc_order_tracking_link', $response->order_tracking_link, true)) {
+                                update_post_meta($order_id, 'cc_order_tracking_link', true);
+                            }
+                        }
+                        $data = array(
+                            'status' => 'success',
+                            'message' => array('Order successfully submitted')
+                        );
+                    } else {
+
+                        if ($response == !null) {
+                            $error_text = '<ul class="connect-co-error-items">';
+                            foreach ($response as $errors) {
+                                $error_text .= '<li> - ' . $errors[0] . '</li>';
+                            }
+                            $error_text .= '</ul>';
+                            $data = array(
+                                'status' => 'error',
+                                'message' => array($error_text)
+                            );
+                        }
+                    }
+                }
 
             } else {
                 $data = array(
@@ -522,8 +601,9 @@ class Connect_Co_Admin
             'body' => $order_values
         );
         $response = $this->send_api_request($url, $args);
+
         if ($response) {
-            return $response->data;
+            return $response;
         }
     }
 
@@ -535,7 +615,7 @@ class Connect_Co_Admin
     {
         $package_sizes = (array)$package_sizes;
         array_walk($package_sizes, function (&$val, $key) {
-            $val = $val . " ( $key )";
+            $val = $val . " ($key)";
         });
 
         return $package_sizes;
@@ -567,7 +647,7 @@ class Connect_Co_Admin
         $cites = (array)$cites;
         $cites_array = array('' => '- select a city -');
         foreach ($cites as $city) {
-            $cites_array[$city->id] = $city->city_name;
+            $cites_array[$city->city_name] = $city->city_name;
         }
         return $cites_array;
     }
@@ -736,9 +816,31 @@ class Connect_Co_Admin
 
     public function delivery_city_availability_check(array $cites, $order)
     {
-        $order_data = $order->get_data();
-        $order_shipping_city = $order_data['shipping']['city'];
+        $order_shipping_city = $order->get_shipping_city();
         return array_search($order_shipping_city, $cites);
+    }
+
+    public function get_order_items($order_id)
+    {
+        $order = wc_get_order($order_id);
+        $order_items = array();
+        foreach ($order->get_items() as $item_key => $item) {
+            $product = $item->get_product();
+
+            $item_id = $item->get_id();
+            $item_name = $item->get_name();
+            $quantity = $item->get_quantity();
+
+            $product_type = $product->get_type();
+            $product_sku = $product->get_sku();
+            $product_price = $product->get_price();
+
+            $order_items[] = array('sku' => $product_sku,
+                'item_name' => $item_name,
+                'qty' => $quantity);
+
+        }
+        return $order_items;
     }
 
 }
