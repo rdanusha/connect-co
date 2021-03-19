@@ -110,6 +110,7 @@
                     if (response) {
                         if (response.status == 'error') {
                             cc_display_errors(response.message);
+                            alert(response.message);
                             $('#cc_delivery_type').val(1);
                             $('.cc-delivery-date').hide();
                             $('.cc-time-window').hide();
@@ -154,6 +155,7 @@
                     if (response) {
                         if (response.status == 'error') {
                             cc_display_errors(response.message);
+                            alert(response.message);
                             $('#cc_payment_type').val(1);
                         }
                         if (response.status == 'success') {
@@ -222,6 +224,11 @@
                             if (response.status == 'success') {
                                 $('#cc-success').text(response.message);
                                 $('#cc-success').fadeIn();
+                                alert(response.message);
+                                setTimeout(function() {
+                                    location.reload();
+                                }, 2000);
+
                             }
                         } else {
                             cc_display_errors('Something went wrong. Please try again.');

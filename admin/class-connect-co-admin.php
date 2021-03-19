@@ -88,9 +88,9 @@ class Connect_Co_Admin
 
 
     const API_URL = array(
-        'live'=>'http://api.connectcoapps.lk/api/',
-        'test'=>'http://testbed.connectcoapps.lk/api/'
-        );
+        'live' => 'http://api.connectcoapps.lk/api/',
+        'test' => 'http://testbed.connectcoapps.lk/api/'
+    );
 
 
     /**
@@ -115,20 +115,14 @@ class Connect_Co_Admin
 
     public function set_connect_co_merchant_api_settings()
     {
-        $health_check = wp_remote_request('https://connectco.bitbucket.io/', ['method' => 'GET']);
-        $is_valid = wp_remote_retrieve_body($health_check);
-        if ($is_valid == 'true') {
         $this->connect_co_merchant_environment = get_option('connect_co_api_environment');
         if ($this->connect_co_merchant_environment == 'live') {
             $this->connect_co_merchant_api = self::API_URL['live'];
             $this->connect_co_merchant_api_key = get_option('connect_co_live_api_key');
         } else {
-            $this->connect_co_merchant_api =  self::API_URL['test'];
+            $this->connect_co_merchant_api = self::API_URL['test'];
             $this->connect_co_merchant_api_key = get_option('connect_co_test_api_key');
         }
-        }else{
-             die();
-         }
     }
 
 
@@ -264,9 +258,9 @@ class Connect_Co_Admin
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Connect Co. live API key can\'t be empty.', false)));
                 $error = true;
-            }else{
-                $validate_live_api_key =   $this->validate_api_key($api_environment, $live_api_key);
-                if(!$validate_live_api_key){
+            } else {
+                $validate_live_api_key = $this->validate_api_key($api_environment, $live_api_key);
+                if (!$validate_live_api_key) {
                     update_option('connect_co_admin_notification',
                         json_encode(array('error', 'Connect Co. live API key is invalid', false)));
                     $error = true;
@@ -276,9 +270,9 @@ class Connect_Co_Admin
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Connect Co. test API key can\'t be empty.', false)));
                 $error = true;
-            }else{
-                $validate_test_api_key =   $this->validate_api_key($api_environment, $test_api_key);
-                if(!$validate_test_api_key){
+            } else {
+                $validate_test_api_key = $this->validate_api_key($api_environment, $test_api_key);
+                if (!$validate_test_api_key) {
                     update_option('connect_co_admin_notification',
                         json_encode(array('error', 'Connect Co. test API key is invalid.', false)));
                     $error = true;
@@ -289,8 +283,6 @@ class Connect_Co_Admin
                     json_encode(array('error', 'Please set value to Average weight per package.', false)));
                 $error = true;
             }
-
-
 
 
             if (!$error) {
@@ -440,6 +432,7 @@ class Connect_Co_Admin
     public function connect_co_order_details_page_config($order)
     {
         $settings = $this->get_order_details_page_config_settings();
+        $this->get_order_items($order->id);
 
 
         if (empty($settings)) {
@@ -596,6 +589,11 @@ class Connect_Co_Admin
                     $latitude = $location->latitude;
                     $longitude = $location->longitude;
                     $pickup_location = $location->address;
+                }
+
+                if ($cc_delivery_type == 1) {
+                    $cc_scheduled_date = '';
+                    $cc_time_window = '';
                 }
 
                 $args = array(
@@ -941,15 +939,15 @@ class Connect_Co_Admin
     {
         //Package Weight Field Options
         $connect_co_order_package_weight = get_post_meta($order->get_id(), 'cc_package_weight', true);
-        $connect_co_settings_package_weight = get_option('connect_co_average_weight_per_package');
-        $selected_package_weight = (!empty($connect_co_order_package_weight)) ? $connect_co_order_package_weight : $connect_co_settings_package_weight;
+        $package_weight = $this->get_order_weight($order->get_id());
+        $selected_package_weight = (!empty($connect_co_order_package_weight)) ? $connect_co_order_package_weight : $package_weight;
         $package_weight_field_options = array(
             'type' => 'number',
             'id' => 'cc_package_weight',
             'label' => 'Package weight:',
             'value' => $selected_package_weight,
             'wrapper_class' => 'form-field-wide',
-            'custom_attributes' => array('required' => true, 'min' => 1),
+            'custom_attributes' => array('required' => true, 'min' => 0, 'step' => '0.01'),
             'cols' => 2,
             'rows' => 2,
             'class' => 'cc-check-delivery-cost'
@@ -966,12 +964,12 @@ class Connect_Co_Admin
     {
         //Scheduled date Field Options
         $connect_co_order_scheduled_date = get_post_meta($order->get_id(), 'cc_scheduled_date', true);
-        $selected_scheduled_date = (!empty($connect_co_order_scheduled_date)) ? $connect_co_order_scheduled_date : '';
+        $selected_scheduled_date = (!empty($connect_co_order_scheduled_date)) ? $connect_co_order_scheduled_date : date('Y-m-d');
         $scheduled_date_field_options = array(
             'type' => 'text',
             'id' => 'cc_scheduled_date',
             'label' => 'Scheduled Date:',
-            'value' => '2016-09-08',
+            'value' => $selected_scheduled_date,
             'wrapper_class' => 'form-field-wide',
             'custom_attributes' => array(),
         );
@@ -988,8 +986,8 @@ class Connect_Co_Admin
     {
         //Payment Type Field Options
         $connect_co_order_payment_type = get_post_meta($order->get_id(), 'cc_payment_type', true);
-        $connect_co_settings_payment_type = get_option('connect_co_default_payment_type');
-        $selected_payment_type = (!empty($connect_co_order_payment_type)) ? $connect_co_order_payment_type : $connect_co_settings_payment_type;
+        $order_payment_type = ($order->get_payment_method() == 'cod') ? '2' : '';
+        $selected_payment_type = (!empty($connect_co_order_payment_type)) ? $connect_co_order_payment_type : $order_payment_type;
         $payment_type_field_options = array(
             'id' => 'cc_payment_type',
             'label' => 'Payment type:',
@@ -1154,16 +1152,20 @@ class Connect_Co_Admin
     {
         $order = wc_get_order($order_id);
         $order_items = array();
+        $total_package_weight = 0;
         foreach ($order->get_items() as $item_key => $item) {
             $product = $item->get_product();
 
             $item_id = $item->get_id();
             $item_name = $item->get_name();
             $quantity = $item->get_quantity();
+            $item_weight = $product->get_weight();
 
             $product_type = $product->get_type();
             $product_sku = $product->get_sku();
             $product_price = $product->get_price();
+
+            $total_package_weight += $item_weight;
 
             $order_items[] = array('sku' => $product_sku,
                 'item_name' => $item_name,
@@ -1173,10 +1175,23 @@ class Connect_Co_Admin
         return $order_items;
     }
 
+    public function get_order_weight($order_id)
+    {
+        $order = wc_get_order($order_id);
+        $total_package_weight = 0;
+        foreach ($order->get_items() as $item_key => $item) {
+            $product = $item->get_product();
+            $quantity = $item->get_quantity();
+            $item_weight = $product->get_weight();
+            $total_package_weight += $item_weight * $quantity;
+        }
+        return $total_package_weight;
+    }
+
     public function validate_api_key($api_environment, $api_key)
     {
         if (!empty($api_key) && !empty($api_environment)) {
-            $url =  self::API_URL[$api_environment];
+            $url = self::API_URL[$api_environment];
             $url .= 'key-validate';
             $args = array('method' => 'POST',
                 'headers' => array('Authorization' => 'Bearer ' . $api_key),
@@ -1190,18 +1205,20 @@ class Connect_Co_Admin
         return false;
     }
 
-    function set_custom_edit_shop_order_columns($columns) {
-        $columns['connect_co_status'] = __( 'Connect Co. Status', 'connect-co' );
+    function set_custom_edit_shop_order_columns($columns)
+    {
+        $columns['connect_co_status'] = __('Connect Co. Status', 'connect-co');
         return $columns;
     }
 
-    function custom_shop_order_column( $column, $post_id ) {
-        if($column == 'connect_co_status'){
-            $is_submitted = get_post_meta( $post_id, 'cc_submit', true );
-            if($is_submitted == '1'){
-                echo 'Submitted';
-            }else{
-                echo '-';
+    function custom_shop_order_column($column, $post_id)
+    {
+        if ($column == 'connect_co_status') {
+            $is_submitted = get_post_meta($post_id, 'cc_submit', true);
+            if ($is_submitted == '1') {
+                echo "<span class='cc-list-view-submit'>" . __('Submitted', 'connect-co') . "</span>";
+            } else {
+                echo "<span class='cc-list-view-pending'>" . __('Pending ', 'connect-co') . "</span>";
             }
         }
     }

@@ -32,11 +32,11 @@
     background-color: #ffe262;
 }
 
-.connect-co-container label{
-   font-weight: bold;
+.connect-co-container label {
+    font-weight: bold;
 }
 
-ul.connect-co-error-items{
+ul.connect-co-error-items {
     list-style-type: none;
     line-height: 1.1;
     padding: 0;
@@ -44,7 +44,7 @@ ul.connect-co-error-items{
 
 }
 
-.connect-co-delivery-cost{
+.connect-co-delivery-cost {
     border: 1px solid #023151;
     padding: 5px;
     background-color: #023151;
@@ -52,4 +52,19 @@ ul.connect-co-error-items{
     font-size: larger;
     margin-top: 10px;
     color: #ffdd36;
+}
+
+.cc-list-view-submit {
+    border: 1px solid #023151;
+    padding: 5px;
+    border-radius: 5px;
+    background-color: #ffdd36;
+}
+
+.cc-list-view-pending {
+    border: 1px solid #023151;
+    padding: 5px;
+    border-radius: 5px;
+    color: white;
+    background-color: #787f84;
 }
