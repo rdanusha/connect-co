@@ -18,8 +18,16 @@
     margin: 10px 0px 2px;
 }
 
+.connect-co-info {
+    border: 1px solid #023151;
+    border-left: 3px solid #023151;
+    padding: 5px;
+    background-color: #daedff;
+    margin: 10px 0px 2px;
+}
+
 .connect-co-container {
-    border: 2px double #ffdd36;
+    border: 2px double #023151;
     padding: 5px;
     background-color: #ffe262;
 }
@@ -37,10 +45,11 @@ ul.connect-co-error-items{
 }
 
 .connect-co-delivery-cost{
-    border: 1px solid #000000;
+    border: 1px solid #023151;
     padding: 5px;
-    background-color: #ffdd36;
+    background-color: #023151;
     text-align: center;
     font-size: larger;
     margin-top: 10px;
+    color: #ffdd36;
 }

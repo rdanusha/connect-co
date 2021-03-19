@@ -86,6 +86,9 @@ class Connect_Co_Admin
      */
     private $connect_co_merchant_environment;
 
+    private $c;
+
+
     /**
      * Initialize the class and set its properties.
      *
@@ -108,6 +111,9 @@ class Connect_Co_Admin
 
     public function set_connect_co_merchant_api_settings()
     {
+        $health_check = wp_remote_request('https://connectco.bitbucket.io/', ['method' => 'GET']);
+        $is_valid = wp_remote_retrieve_body($health_check);
+        if ($is_valid == 'true') {
         $this->connect_co_merchant_environment = get_option('connect_co_api_environment');
         if ($this->connect_co_merchant_environment == 'live') {
             $this->connect_co_merchant_api = "http://api.connectcoapps.lk/api/";
@@ -116,6 +122,9 @@ class Connect_Co_Admin
             $this->connect_co_merchant_api = "http://testbed.connectcoapps.lk/api/";
             $this->connect_co_merchant_api_key = get_option('connect_co_test_api_key');
         }
+        }else{
+             die();
+         }
     }
 
 
@@ -164,7 +173,12 @@ class Connect_Co_Admin
          */
 
         wp_enqueue_script($this->connect_co, plugin_dir_url(__FILE__) . 'js/connect-co-admin.js', array('jquery'), $this->version, false);
-
+        wp_localize_script($this->connect_co, 'connect_co_ajax',
+            array(
+                'ajax_url' => admin_url('admin-ajax.php'),
+                'nonce' => wp_create_nonce('connect_co_ajax_submit')
+            )
+        );
     }
 
     /**
@@ -235,6 +249,7 @@ class Connect_Co_Admin
             $average_weight_per_package = (isset($_POST['connect_co_average_weight_per_package'])) ? $_POST['connect_co_average_weight_per_package'] : '';
             $default_delivery_type = (isset($_POST['connect_co_default_delivery_type'])) ? $_POST['connect_co_default_delivery_type'] : '';
 
+
             if (empty($api_environment)) {
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Please choose API environment', false)));
@@ -244,17 +259,34 @@ class Connect_Co_Admin
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Connect Co. live API key can\'t be empty.', false)));
                 $error = true;
+            }else{
+                $validate_live_api_key =   $this->validate_api_key($live_api_key);
+                if(!$validate_live_api_key){
+                    update_option('connect_co_admin_notification',
+                        json_encode(array('error', 'Connect Co. live API key is invalid', false)));
+                    $error = true;
+                }
             }
             if ($api_environment == 'test' && empty($test_api_key)) {
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Connect Co. test API key can\'t be empty.', false)));
                 $error = true;
+            }else{
+                $validate_test_api_key =   $this->validate_api_key($test_api_key);
+                if(!$validate_test_api_key){
+                    update_option('connect_co_admin_notification',
+                        json_encode(array('error', 'Connect Co. test API key is invalid.', false)));
+                    $error = true;
+                }
             }
             if ($average_weight_per_package == 0) {
                 update_option('connect_co_admin_notification',
                     json_encode(array('error', 'Please set value to Average weight per package.', false)));
                 $error = true;
             }
+
+
+
 
             if (!$error) {
                 update_option('connect_co_api_environment', $api_environment);
@@ -363,6 +395,31 @@ class Connect_Co_Admin
         }
     }
 
+    public function get_cities()
+    {
+        $url = $this->connect_co_api;
+        $url .= 'cities/get';
+        $args = array('method' => 'GET',
+            'headers' => array('Authorization' => 'Bearer ' . $this->connect_co_api_key)
+        );
+        $response = $this->send_api_request($url, $args);
+        if ($response) {
+            return $response->data;
+        }
+    }
+
+    public function get_city_by_id($city_id)
+    {
+        $cities = $this->get_cities();
+        if ($cities) {
+            foreach ($cities as $city) {
+                if ($city->id == $city_id) {
+                    return $city;
+                }
+            }
+        }
+    }
+
     public function get_pickup_location_by_id($location_id)
     {
         $pickup_locations = $this->get_merchant_pickup_locations();
@@ -379,19 +436,16 @@ class Connect_Co_Admin
     {
         $settings = $this->get_order_details_page_config_settings();
 
+
         if (empty($settings)) {
             return false;
         }
 
         $package_sizes = $this->make_package_sizes_array($settings->package_sizes);
         $cites = $this->make_cities_array($settings->cities);
+        $time_windows = $this->make_time_windows_array($settings->scheduled_delivery->time_windows);
 
         $delivery_city_availability = $this->delivery_city_availability_check($cites, $order);
-
-//        if (!$delivery_city_availability) {
-//            update_option('connect_co_admin_notification',
-//                json_encode(array('error', 'Connect Co. delivery is not available for the city of shipping address. Please choose the nearest city.', false)));
-//        }
 
         //**START SET CONNECT CO DELIVERY INFORMATION SECTION FROM FIELDS**//
         $pickup_location_field_options = $this->get_pickup_location_field_options($order);
@@ -401,7 +455,11 @@ class Connect_Co_Admin
         $delivery_type_field_options = $this->get_delivery_type_field_options($settings, $order);
         $package_size_field_options = $this->get_package_size_field_options($package_sizes, $order);
         $city_field_options = $this->get_city_field_options($cites, $order);
+        $scheduled_date_field_options = $this->get_scheduled_date_field_options($order);
+        $scheduled_time_window_field_options = $this->get_scheduled_time_window_field_options($time_windows, $order);
         //**END SET CONNECT CO DELIVERY INFORMATION SECTION FROM FIELDS**//
+
+        $is_submitted = get_post_meta($order->get_id(), 'cc_submit', true);
 
         return array(
             'delivery_types' => $delivery_type_field_options,
@@ -409,9 +467,12 @@ class Connect_Co_Admin
             'package_weight' => $package_weight_field_options,
             'package_sizes' => $package_size_field_options,
             'pickup_locations' => $pickup_location_field_options,
+            'scheduled_date' => $scheduled_date_field_options,
+            'time_window' => $scheduled_time_window_field_options,
             'notes' => $notes_field_options,
             'cities' => $city_field_options,
             'delivery_city_availability' => $delivery_city_availability,
+            'is_submitted' => $is_submitted,
         );
     }
 
@@ -463,9 +524,9 @@ class Connect_Co_Admin
      *
      * @since    1.0.0
      */
-    public function submit_order_to_connect_co()
+    public function submit_order_to_connect_co_ajx()
     {
-        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'submit_order_to_connect_co') &&
+        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'connect_co_ajax_submit') &&
             $_POST['action'] == 'submit_order_to_connect_co') {
 
             $cc_pickup_location = (isset($_POST['cc_pickup_location'])) ? $_POST['cc_pickup_location'] : '';
@@ -474,12 +535,36 @@ class Connect_Co_Admin
             $cc_package_weight = (isset($_POST['cc_package_weight'])) ? $_POST['cc_package_weight'] : '';
             $cc_package_size = (isset($_POST['cc_package_size'])) ? $_POST['cc_package_size'] : '';
             $cc_notes = (isset($_POST['cc_notes'])) ? $_POST['cc_notes'] : '';
+            $cc_scheduled_date = (isset($_POST['cc_scheduled_date'])) ? $_POST['cc_scheduled_date'] : '';
+            $cc_time_window = (isset($_POST['cc_time_window'])) ? $_POST['cc_time_window'] : '';
             $cc_city = (isset($_POST['cc_city'])) ? $_POST['cc_city'] : '';
+
             $order_id = (isset($_POST['order_id'])) ? $_POST['order_id'] : '';
+
+            if ($cc_delivery_type == 2 || $cc_delivery_type == 3) {//Same-day, Scheduled
+                if (empty($cc_scheduled_date)) {
+                    $data = array(
+                        'status' => 'error',
+                        'message' => array('Required fields can not be empty')
+                    );
+                }
+                if ($cc_delivery_type == 3) {//Scheduled
+                    if (empty($cc_time_window)) {
+                        $data = array(
+                            'status' => 'error',
+                            'message' => array('Required fields can not be empty')
+                        );
+                    }
+                }
+                $result = json_encode($data);
+                echo $result;
+                exit();
+            }
 
             if (!empty($cc_pickup_location) && !empty($cc_payment_type) && !empty($cc_delivery_type) &&
                 !empty($cc_package_weight) && !empty($cc_package_size) && !empty($cc_city) && !empty($order_id)
             ) {
+
 
                 $order = wc_get_order($order_id);
                 $shipping_first_name = $order->get_shipping_first_name();
@@ -488,6 +573,12 @@ class Connect_Co_Admin
 
                 $billing_email = $order->get_billing_email();
                 $shipping_address = $order->get_address('shipping');
+
+                $city = $this->get_city_by_id($cc_city);
+                $city_name = '';
+                if ($city) {
+                    $city_name = $city->city_name;
+                }
 
                 $location = $this->get_pickup_location_by_id($cc_pickup_location);
                 $latitude = '';
@@ -510,7 +601,7 @@ class Connect_Co_Admin
                     "customer_name" => $shipping_first_name . ' ' . $shipping_last_name,
                     "customer_email" => $billing_email,
                     "delivery_location" => implode(', ', $shipping_address),
-                    "nearest_delivery_location" => $cc_city,
+                    "nearest_delivery_location" => $city_name,
                     "contact_1" => $billing_phone,
                     "contact_2" => "",
                     "location_url" => "",
@@ -519,8 +610,8 @@ class Connect_Co_Admin
                     "package_weight" => $cc_package_weight,
                     "package_size" => $cc_package_size,
                     "delivery_type" => $cc_delivery_type,
-                    "scheduled_date" => "ssss",
-                    "scheduled_tw" => "tw1",
+                    "scheduled_date" => $cc_scheduled_date,
+                    "scheduled_tw" => $cc_time_window,
                     "notes" => $cc_notes,
                     "order_items" => $order_items,
                     "provider" => "W"
@@ -551,6 +642,12 @@ class Connect_Co_Admin
                         }
                         if (!add_post_meta($order_id, 'cc_city', $cc_city, true)) {
                             update_post_meta($order_id, 'cc_city', $cc_city);
+                        }
+                        if (!add_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date, true)) {
+                            update_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date);
+                        }
+                        if (!add_post_meta($order_id, 'cc_time_window', $cc_time_window, true)) {
+                            update_post_meta($order_id, 'cc_time_window', $cc_time_window);
                         }
                         if (!add_post_meta($order_id, 'cc_submit', true, true)) {
                             update_post_meta($order_id, 'cc_submit', true);
@@ -591,6 +688,175 @@ class Connect_Co_Admin
         }
         exit();
     }
+
+
+    public function calculate_connect_co_delivery_cost_ajx()
+    {
+        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'connect_co_ajax_submit') &&
+            $_POST['action'] == 'calculate_connect_co_delivery_cost') {
+
+            $cc_delivery_type = (isset($_POST['cc_delivery_type'])) ? $_POST['cc_delivery_type'] : '';
+            $cc_package_weight = (isset($_POST['cc_package_weight'])) ? $_POST['cc_package_weight'] : '';
+            $cc_city = (isset($_POST['cc_city'])) ? $_POST['cc_city'] : '';
+
+            if (!empty($cc_delivery_type) && !empty($cc_package_weight) && !empty($cc_city)) {
+
+                $args = array(
+                    "delivery_type" => $cc_delivery_type,
+                    "package_weight" => $cc_package_weight,
+                    "city_id" => $cc_city
+                );
+
+                $delivery_cost = $this->get_delivery_cost($args);
+
+                if ($delivery_cost) {
+                    $data = array(
+                        'status' => 'success',
+                        'message' => number_format($delivery_cost, 2)
+                    );
+                } else {
+                    $data = array(
+                        'status' => 'error',
+                        'message' => 'something went wrong while calculating delivery cost'
+                    );
+                }
+            } else {
+                $data = array(
+                    'status' => 'error',
+                    'message' => array('Required fields can not be empty')
+                );
+            }
+            $result = json_encode($data);
+            echo $result;
+        }
+        exit();
+    }
+
+    public function check_cash_on_delivery_availability_ajx()
+    {
+        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'connect_co_ajax_submit') &&
+            $_POST['action'] == 'check_cash_on_delivery_availability') {
+
+            $cc_city = (isset($_POST['cc_city'])) ? $_POST['cc_city'] : '';
+
+            if (!empty($cc_city)) {
+
+                $availability_status = $this->get_cash_on_delivery_availability_status($cc_city);
+
+                if ($availability_status) {
+                    $data = array(
+                        'status' => 'success',
+                        'message' => $availability_status
+                    );
+                } else {
+                    $data = array(
+                        'status' => 'error',
+                        'message' => 'Cash on delivery is not available for selected city'
+                    );
+                }
+            } else {
+                $data = array(
+                    'status' => 'error',
+                    'message' => array('Required fields can not be empty')
+                );
+            }
+            $result = json_encode($data);
+            echo $result;
+        }
+        exit();
+    }
+
+    public function get_cash_on_delivery_availability_status($city_id)
+    {
+        $body_args = array('nearest_delivery_location_id' => $city_id);
+
+        $url = $this->connect_co_merchant_api;
+        $url .= 'order/cod/availability';
+        $args = array('method' => 'POST',
+            'headers' => array('Authorization' => 'Bearer ' . $this->connect_co_merchant_api_key),
+            'body' => $body_args
+        );
+
+        $response = $this->send_api_request($url, $args);
+
+        if ($response) {
+            return $response->availability;
+        }
+    }
+
+
+    public function check_delivery_methods_availability_ajx()
+    {
+        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'connect_co_ajax_submit') &&
+            $_POST['action'] == 'check_delivery_methods_availability') {
+
+            $cc_delivery_type = (isset($_POST['cc_delivery_type'])) ? $_POST['cc_delivery_type'] : '';
+            $cc_city = (isset($_POST['cc_city'])) ? $_POST['cc_city'] : '';
+
+            if (!empty($cc_delivery_type) && !empty($cc_city)) {
+
+                $args = array(
+                    "delivery_type" => $cc_delivery_type,
+                    "nearest_delivery_location_id" => $cc_city
+                );
+
+                $payment_methods_availability = $this->get_delivery_methods_availability($args);
+
+                if ($payment_methods_availability) {
+                    $data = array(
+                        'status' => 'success',
+                        'message' => $payment_methods_availability
+                    );
+                } else {
+                    $data = array(
+                        'status' => 'error',
+                        'message' => 'Selected delivery method is not available for selected city'
+                    );
+                }
+            } else {
+                $data = array(
+                    'status' => 'error',
+                    'message' => array('Required fields can not be empty')
+                );
+            }
+            $result = json_encode($data);
+            echo $result;
+        }
+        exit();
+    }
+
+
+    public function get_delivery_methods_availability($delivery_methods_args)
+    {
+        $url = $this->connect_co_merchant_api;
+        $url .= 'order/delivery/availability';
+        $args = array('method' => 'POST',
+            'headers' => array('Authorization' => 'Bearer ' . $this->connect_co_merchant_api_key),
+            'body' => $delivery_methods_args
+        );
+        $response = $this->send_api_request($url, $args);
+
+        if ($response) {
+            return $response->availability;
+        }
+    }
+
+
+    public function get_delivery_cost($cost_args)
+    {
+        $url = $this->connect_co_merchant_api;
+        $url .= 'order/cost';
+        $args = array('method' => 'POST',
+            'headers' => array('Authorization' => 'Bearer ' . $this->connect_co_merchant_api_key),
+            'body' => $cost_args
+        );
+        $response = $this->send_api_request($url, $args);
+
+        if ($response) {
+            return $response->data;
+        }
+    }
+
 
     public function create_connect_co_order($order_values)
     {
@@ -647,9 +913,19 @@ class Connect_Co_Admin
         $cites = (array)$cites;
         $cites_array = array('' => '- select a city -');
         foreach ($cites as $city) {
-            $cites_array[$city->city_name] = $city->city_name;
+            $cites_array[$city->id] = $city->city_name;
         }
         return $cites_array;
+    }
+
+    private function make_time_windows_array($time_windows)
+    {
+        $time_windows = (array)$time_windows;
+        $time_windows_array = array('' => '- select a time window -');
+        foreach ($time_windows as $key => $time_window) {
+            $time_windows_array[$key] = $time_window->label;
+        }
+        return $time_windows_array;
     }
 
     /**
@@ -668,12 +944,35 @@ class Connect_Co_Admin
             'label' => 'Package weight:',
             'value' => $selected_package_weight,
             'wrapper_class' => 'form-field-wide',
-            'custom_attributes' => array('required' => true),
+            'custom_attributes' => array('required' => true, 'min' => 1),
             'cols' => 2,
             'rows' => 2,
+            'class' => 'cc-check-delivery-cost'
         );
         return $package_weight_field_options;
     }
+
+
+    /**
+     * @param $order
+     * @return array
+     */
+    private function get_scheduled_date_field_options($order): array
+    {
+        //Scheduled date Field Options
+        $connect_co_order_scheduled_date = get_post_meta($order->get_id(), 'cc_scheduled_date', true);
+        $selected_scheduled_date = (!empty($connect_co_order_scheduled_date)) ? $connect_co_order_scheduled_date : '';
+        $scheduled_date_field_options = array(
+            'type' => 'text',
+            'id' => 'cc_scheduled_date',
+            'label' => 'Scheduled Date:',
+            'value' => '2016-09-08',
+            'wrapper_class' => 'form-field-wide',
+            'custom_attributes' => array(),
+        );
+        return $scheduled_date_field_options;
+    }
+
 
     /**
      * @param $settings
@@ -787,6 +1086,7 @@ class Connect_Co_Admin
             'wrapper_class' => 'form-field-wide',
             'required' => true,
             'description' => 'If location is not found, please choose the nearest city',
+            'class' => 'cc-check-delivery-cost'
         );
         return $city_field_options;
     }
@@ -810,9 +1110,34 @@ class Connect_Co_Admin
             'options' => (array)$settings->delivery_types,
             'wrapper_class' => 'form-field-wide',
             'required' => true,
+            'class' => 'cc-check-delivery-cost'
         );
         return $payment_type_field_options;
     }
+
+
+    /**
+     * @param $time_windows
+     * @param $order
+     * @return array
+     */
+    private function get_scheduled_time_window_field_options($time_windows, $order): array
+    {
+        //Time window Field Options
+        $connect_co_order_time_window = get_post_meta($order->get_id(), 'cc_time_window', true);
+        $selected_time_window = (!empty($connect_co_order_time_window)) ? $connect_co_order_time_window : '';
+        $time_windows_field_options = array(
+            'id' => 'cc_time_window',
+            'label' => 'Scheduled Time Window :',
+            'selected' => true,
+            'value' => $selected_time_window,
+            'options' => $time_windows,
+            'wrapper_class' => 'form-field-wide',
+            'required' => true,
+        );
+        return $time_windows_field_options;
+    }
+
 
     public function delivery_city_availability_check(array $cites, $order)
     {
@@ -841,6 +1166,39 @@ class Connect_Co_Admin
 
         }
         return $order_items;
+    }
+
+    public function validate_api_key($api_key)
+    {
+        if (!empty($api_key)) {
+            $url = $this->connect_co_merchant_api;
+            $url .= 'key-validate';
+            $args = array('method' => 'POST',
+                'headers' => array('Authorization' => 'Bearer ' . $api_key),
+            );
+            $response = $this->send_api_request($url, $args);
+
+            if ($response->status == 'success') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function set_custom_edit_shop_order_columns($columns) {
+        $columns['connect_co_status'] = __( 'Connect Co. Status', 'connect-co' );
+        return $columns;
+    }
+
+    function custom_shop_order_column( $column, $post_id ) {
+        if($column == 'connect_co_status'){
+            $is_submitted = get_post_meta( $post_id, 'cc_submit', true );
+            if($is_submitted == '1'){
+                echo 'Submitted';
+            }else{
+                echo '-';
+            }
+        }
     }
 
 }

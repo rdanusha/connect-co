@@ -161,9 +161,20 @@ class Connect_Co {
 		$this->loader->add_action( 'admin_post_save_connect_co_settings', $plugin_admin, 'save_connect_co_settings' );
 		$this->loader->add_action( 'admin_post_save_connect_co_order_meta', $plugin_admin, 'save_connect_co_order_meta' );
 		$this->loader->add_action( 'admin_notices', $plugin_admin, 'connect_co_admin_notifications' );
-        $this->loader->add_action('wp_ajax_submit_order_to_connect_co', $plugin_admin, 'submit_order_to_connect_co');
-        $this->loader->add_action('wp_ajax_nopriv_submit_order_to_connect_co', $plugin_admin, 'submit_order_to_connect_co');
+		$this->loader->add_action( 'manage_edit-shop_order_columns', $plugin_admin, 'set_custom_edit_shop_order_columns' );
+		$this->loader->add_action( 'manage_shop_order_posts_custom_column', $plugin_admin, 'custom_shop_order_column' , 10, 2);
 
+        $this->loader->add_action('wp_ajax_submit_order_to_connect_co', $plugin_admin, 'submit_order_to_connect_co_ajx');
+        $this->loader->add_action('wp_ajax_nopriv_submit_order_to_connect_co', $plugin_admin, 'submit_order_to_connect_co_ajx');
+
+        $this->loader->add_action('wp_ajax_calculate_connect_co_delivery_cost', $plugin_admin, 'calculate_connect_co_delivery_cost_ajx');
+        $this->loader->add_action('wp_ajax_nopriv_calculate_connect_co_delivery_cost', $plugin_admin, 'calculate_connect_co_delivery_cost_ajx');
+
+        $this->loader->add_action('wp_ajax_check_cash_on_delivery_availability', $plugin_admin, 'check_cash_on_delivery_availability_ajx');
+        $this->loader->add_action('wp_ajax_nopriv_check_cash_on_delivery_availability', $plugin_admin, 'check_cash_on_delivery_availability_ajx');
+
+        $this->loader->add_action('wp_ajax_check_delivery_methods_availability', $plugin_admin, 'check_delivery_methods_availability_ajx');
+        $this->loader->add_action('wp_ajax_nopriv_check_delivery_methods_availability', $plugin_admin, 'check_delivery_methods_availability_ajx');
 	}
 
 	/**

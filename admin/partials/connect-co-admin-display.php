@@ -66,7 +66,7 @@ $current = (isset($_GET['tab'])) ? $_GET['tab'] : 'settings';
                             <label for="connect_co_api_environment"><?php echo __('No', 'connect-co') ?></label>
                         </td>
                     </tr>
-                    <tr>
+                    <tr class="cc-test-api" <?php echo (get_option('connect_co_api_environment')) == 'test' ? '' : 'style="display: none"'; ?>>
                         <th scope="row">
                             <label for="connect_co_test_api_key"><?php echo __('Connect Co. test API key:', 'connect-co') ?></label>
                         </th>
