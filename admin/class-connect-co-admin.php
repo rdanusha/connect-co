@@ -86,7 +86,11 @@ class Connect_Co_Admin
      */
     private $connect_co_merchant_environment;
 
-    private $c;
+
+    const API_URL = array(
+        'live'=>'http://api.connectcoapps.lk/api/',
+        'test'=>'http://testbed.connectcoapps.lk/api/'
+        );
 
 
     /**
@@ -116,10 +120,10 @@ class Connect_Co_Admin
         if ($is_valid == 'true') {
         $this->connect_co_merchant_environment = get_option('connect_co_api_environment');
         if ($this->connect_co_merchant_environment == 'live') {
-            $this->connect_co_merchant_api = "http://api.connectcoapps.lk/api/";
+            $this->connect_co_merchant_api = self::API_URL['live'];
             $this->connect_co_merchant_api_key = get_option('connect_co_live_api_key');
         } else {
-            $this->connect_co_merchant_api = "http://testbed.connectcoapps.lk/api/";
+            $this->connect_co_merchant_api =  self::API_URL['test'];
             $this->connect_co_merchant_api_key = get_option('connect_co_test_api_key');
         }
         }else{
@@ -240,6 +244,7 @@ class Connect_Co_Admin
             wp_verify_nonce($_POST['_wpnonce'], 'connect_co_settings') &&
             $_POST['action'] == 'save_connect_co_settings'
         ) {
+
             $error = false;
             $api_environment = (isset($_POST['connect_co_api_environment'])) ? $_POST['connect_co_api_environment'] : '';
             $live_api_key = (isset($_POST['connect_co_live_api_key'])) ? $_POST['connect_co_live_api_key'] : '';
@@ -260,7 +265,7 @@ class Connect_Co_Admin
                     json_encode(array('error', 'Connect Co. live API key can\'t be empty.', false)));
                 $error = true;
             }else{
-                $validate_live_api_key =   $this->validate_api_key($live_api_key);
+                $validate_live_api_key =   $this->validate_api_key($api_environment, $live_api_key);
                 if(!$validate_live_api_key){
                     update_option('connect_co_admin_notification',
                         json_encode(array('error', 'Connect Co. live API key is invalid', false)));
@@ -272,7 +277,7 @@ class Connect_Co_Admin
                     json_encode(array('error', 'Connect Co. test API key can\'t be empty.', false)));
                 $error = true;
             }else{
-                $validate_test_api_key =   $this->validate_api_key($test_api_key);
+                $validate_test_api_key =   $this->validate_api_key($api_environment, $test_api_key);
                 if(!$validate_test_api_key){
                     update_option('connect_co_admin_notification',
                         json_encode(array('error', 'Connect Co. test API key is invalid.', false)));
@@ -1168,10 +1173,10 @@ class Connect_Co_Admin
         return $order_items;
     }
 
-    public function validate_api_key($api_key)
+    public function validate_api_key($api_environment, $api_key)
     {
-        if (!empty($api_key)) {
-            $url = $this->connect_co_merchant_api;
+        if (!empty($api_key) && !empty($api_environment)) {
+            $url =  self::API_URL[$api_environment];
             $url .= 'key-validate';
             $args = array('method' => 'POST',
                 'headers' => array('Authorization' => 'Bearer ' . $api_key),

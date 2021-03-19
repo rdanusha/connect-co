@@ -103,6 +103,8 @@
                 beforeSend: function () {
                     $('#cc-error').fadeOut();
                     $('#cc-success').fadeOut();
+                    $('#connect-co-submit').attr('disabled', true);
+
                 },
                 success: function (response) {
                     if (response) {
@@ -115,6 +117,8 @@
                         if (response.status == 'success') {
                             $('#cc-error').fadeOut();
                         }
+                        $('#connect-co-submit').attr('disabled', false);
+
                     } else {
                         cc_display_errors('Something went wrong. Please try again.');
                     }
@@ -143,6 +147,8 @@
                 beforeSend: function () {
                     $('#cc-error').fadeOut();
                     $('#cc-success').fadeOut();
+                    $('#connect-co-submit').attr('disabled', true);
+
                 },
                 success: function (response) {
                     if (response) {
@@ -153,6 +159,8 @@
                         if (response.status == 'success') {
                             $('#cc-error').fadeOut();
                         }
+                        $('#connect-co-submit').attr('disabled', false);
+
                     } else {
                         cc_display_errors('Something went wrong. Please try again.');
                     }
