@@ -34,35 +34,46 @@
                     ?>
                 </div>
             <?php endif; ?>
-            <div class="connect-co-delivery-cost">Delivery cost:<br><b><span id="cc-delivery-cost">0.00</span></b> LKR
+            <div class="connect-co-delivery-cost">Delivery cost:<br>
+                <?php if ($config['is_submitted'] == '1'): ?>
+                    <b><span><?php echo $config['cc-delivery-cost'] ?></span></b> LKR
+                <?php else: ?>
+                    <b><span id="cc-delivery-cost">0.00</span></b> LKR
+                <?php endif; ?>
             </div>
-            <?php
-            woocommerce_wp_select($config['pickup_locations']);
-            woocommerce_wp_select($config['payment_types']);
-            woocommerce_wp_text_input($config['package_weight']);
-            woocommerce_wp_select($config['package_sizes']);
-            woocommerce_wp_textarea_input($config['notes']);
-            woocommerce_wp_select($config['cities']);
-            woocommerce_wp_select($config['delivery_types']);
-            ?>
-            <div class="cc-delivery-date" style="display: none">
+            <?php if ($config['is_submitted'] == '1'): ?>
+                <span class="cc-show_details" id="cc-show_details">Show details</span>
+            <?php endif; ?>
+            <div class="cc-form-fields  <?php echo ($config['is_submitted'] == '1') ? 'cc-hide-records' : ''; ?>">
                 <?php
-                woocommerce_wp_text_input($config['scheduled_date']);
+                woocommerce_wp_select($config['pickup_locations']);
+                woocommerce_wp_select($config['payment_types']);
+                woocommerce_wp_text_input($config['package_weight']);
+                woocommerce_wp_select($config['package_sizes']);
+                woocommerce_wp_textarea_input($config['notes']);
+                woocommerce_wp_select($config['cities']);
+                woocommerce_wp_select($config['delivery_types']);
                 ?>
+                <div class="cc-delivery-date" style="display: none">
+                    <?php
+                    woocommerce_wp_text_input($config['scheduled_date']);
+                    ?>
+                </div>
+                <div class="cc-time-window" style="display: none">
+                    <?php
+                    woocommerce_wp_select($config['time_window']);
+                    ?>
+                </div>
+                <br class="clear"/>
+                <br class="clear"/>
+                <input type="hidden" id="cc_order_id" name="cc_order_id" value="<?php echo $order->get_id(); ?>">
+                <input type="hidden" id="cc_delivery_charge" name="cc_delivery_charge"  >
+                <button type="button" id="connect-co-submit" class="button"
+                    <?php echo ($config['is_submitted'] == '1') ? 'disabled' : ''; ?>
+                    <?php echo (!$config['delivery_city_availability']) ? 'disabled' : ''; ?>>
+                    <?php echo __(' Submit to Connect Co.', 'connect-co') ?>
+                </button>
             </div>
-            <div class="cc-time-window" style="display: none">
-                <?php
-                woocommerce_wp_select($config['time_window']);
-                ?>
-            </div>
-            <br class="clear"/>
-            <br class="clear"/>
-            <input type="hidden" id="cc_order_id" name="cc_order_id" value="<?php echo $order->get_id(); ?>">
-            <button type="button" id="connect-co-submit" class="button"
-                <?php echo ($config['is_submitted'] == '1') ? 'disabled' : ''; ?>
-                <?php echo (!$config['delivery_city_availability']) ? 'disabled' : ''; ?>>
-                <?php echo __(' Submit to Connect Co.', 'connect-co') ?>
-            </button>
         </div>
     </div>
 <?php if (!$config['delivery_city_availability']): ?>

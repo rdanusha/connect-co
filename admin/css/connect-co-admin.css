@@ -68,3 +68,6 @@ ul.connect-co-error-items {
     color: white;
     background-color: #787f84;
 }
+.cc-hide-records{
+    display: none;
+}
