@@ -176,6 +176,7 @@ class Connect_Co_Admin
             }
             if ($screen->base == 'post' && $screen->post_type == 'shop_order' && $screen->id == 'shop_order') {
                 wp_enqueue_script($this->connect_co, plugin_dir_url(__FILE__) . 'js/connect-co-admin-order-details.js', array('jquery'), $this->version, false);
+
                 wp_localize_script($this->connect_co, 'connect_co_ajax',
                     array(
                         'ajax_url' => admin_url('admin-ajax.php'),
@@ -651,8 +652,8 @@ class Connect_Co_Admin
 
                 if ($response) {
                     if (isset($response->status) && $response->status == 'success') {
-                        if (!add_post_meta($order_id, 'cc_order_amount', $cc_pickup_location, true)) {
-                            update_post_meta($order_id, 'cc_order_amount', $cc_pickup_location);
+                        if (!add_post_meta($order_id, 'cc_order_amount', $cc_delivery_charge, true)) {
+                            update_post_meta($order_id, 'cc_order_amount', $cc_delivery_charge);
                         }
                         if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
                             update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);
@@ -993,7 +994,7 @@ class Connect_Co_Admin
         $package_weight_field_options = array(
             'type' => 'number',
             'id' => 'cc_package_weight',
-            'label' => 'Package weight:',
+            'label' => 'Package weight:*',
             'value' => $selected_package_weight,
             'wrapper_class' => 'form-field-wide',
             'custom_attributes' => $custom_attributes,
@@ -1022,7 +1023,7 @@ class Connect_Co_Admin
         $scheduled_date_field_options = array(
             'type' => 'text',
             'id' => 'cc_scheduled_date',
-            'label' => 'Scheduled Date:',
+            'label' => 'Scheduled Date:*',
             'value' => $selected_scheduled_date,
             'wrapper_class' => 'form-field-wide',
             'custom_attributes' => $custom_attributes,
@@ -1049,7 +1050,7 @@ class Connect_Co_Admin
         $selected_payment_type = (!empty($connect_co_order_payment_type)) ? $connect_co_order_payment_type : $order_payment_type;
         $payment_type_field_options = array(
             'id' => 'cc_payment_type',
-            'label' => 'Payment type:',
+            'label' => 'Payment type:*',
             'selected' => true,
             'value' => $selected_payment_type,
             'options' => (array)$settings->payment_types,
@@ -1081,7 +1082,7 @@ class Connect_Co_Admin
         $selected_pickup_location = (!empty($connect_co_order_pickup_location)) ? $connect_co_order_pickup_location : $primary_location_id;
         $pickup_location_field_options = array(
             'id' => 'cc_pickup_location',
-            'label' => 'Pickup location:',
+            'label' => 'Pickup location:*',
             'selected' => true,
             'value' => $selected_pickup_location,
             'options' => $pickup_location_data['pickup_locations'],
@@ -1110,7 +1111,7 @@ class Connect_Co_Admin
         $selected_package_size = (!empty($connect_co_order_package_size)) ? $connect_co_order_package_size : $connect_co_settings_package_size;
         $package_size_field_options = array(
             'id' => 'cc_package_size',
-            'label' => 'Package size:',
+            'label' => 'Package size:*',
             'selected' => true,
             'value' => $selected_package_size,
             'options' => $package_sizes,
@@ -1165,7 +1166,7 @@ class Connect_Co_Admin
 
         $city_field_options = array(
             'id' => 'cc_city',
-            'label' => 'City:',
+            'label' => 'City:*',
             'selected' => true,
             'value' => $selected_city,
             'options' => $cites,
@@ -1197,7 +1198,7 @@ class Connect_Co_Admin
         $selected_delivery_type = (!empty($connect_co_order_delivery_type)) ? $connect_co_order_delivery_type : $connect_co_settings_delivery_type;
         $payment_type_field_options = array(
             'id' => 'cc_delivery_type',
-            'label' => 'Delivery type:',
+            'label' => 'Delivery type:*',
             'selected' => true,
             'value' => $selected_delivery_type,
             'options' => (array)$settings->delivery_types,
@@ -1228,7 +1229,7 @@ class Connect_Co_Admin
         $selected_time_window = (!empty($connect_co_order_time_window)) ? $connect_co_order_time_window : '';
         $time_windows_field_options = array(
             'id' => 'cc_time_window',
-            'label' => 'Scheduled Time Window :',
+            'label' => 'Scheduled Time Window:*',
             'selected' => true,
             'value' => $selected_time_window,
             'options' => $time_windows,
@@ -1328,6 +1329,33 @@ class Connect_Co_Admin
             return true;
         }
         return false;
+    }
+
+    public function check_is_order_submitted_ajx()
+    {
+        if (isset($_POST['nonce']) && wp_verify_nonce($_POST['nonce'], 'connect_co_ajax_submit') &&
+            $_POST['action'] == 'check_is_order_submitted') {
+
+            $order_id = (isset($_POST['order_id'])) ? $_POST['order_id'] : '';
+
+            if (!empty($order_id)) {
+                $is_submitted = get_post_meta($order_id, 'cc_submit', true);
+                if ($is_submitted == '1') {
+                    $data = array(
+                        'status' => 'success',
+                        'message' => true
+                    );
+                } else {
+                    $data = array(
+                        'status' => 'error',
+                        'message' => array('Required fields can not be empty')
+                    );
+                }
+                $result = json_encode($data);
+                echo $result;
+                exit();
+            }
+        }
     }
 
 

@@ -175,6 +175,9 @@ class Connect_Co {
 
         $this->loader->add_action('wp_ajax_check_delivery_methods_availability', $plugin_admin, 'check_delivery_methods_availability_ajx');
         $this->loader->add_action('wp_ajax_nopriv_check_delivery_methods_availability', $plugin_admin, 'check_delivery_methods_availability_ajx');
+
+        $this->loader->add_action('wp_ajax_check_is_order_submitted', $plugin_admin, 'check_is_order_submitted_ajx');
+        $this->loader->add_action('wp_ajax_nopriv_check_is_order_submitted', $plugin_admin, 'check_is_order_submitted_ajx');
 	}
 
 	/**
@@ -186,10 +189,10 @@ class Connect_Co {
 	 */
 	private function define_public_hooks() {
 
-		$plugin_public = new Connect_Co_Public( $this->get_connect_co(), $this->get_version() );
+		//$plugin_public = new Connect_Co_Public( $this->get_connect_co(), $this->get_version() );
 
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
-		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
+		//$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_styles' );
+		//$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'enqueue_scripts' );
 
 	}
 

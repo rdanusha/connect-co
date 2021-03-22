@@ -36,7 +36,7 @@
             <?php endif; ?>
             <div class="connect-co-delivery-cost">Delivery cost:<br>
                 <?php if ($config['is_submitted'] == '1'): ?>
-                    <b><span><?php echo $config['cc-delivery-cost'] ?></span></b> LKR
+                    <b><span><?php echo number_format($config['cc_order_amount'],2) ?></span></b> LKR
                 <?php else: ?>
                     <b><span id="cc-delivery-cost">0.00</span></b> LKR
                 <?php endif; ?>
