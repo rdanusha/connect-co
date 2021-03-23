@@ -36,13 +36,13 @@
             <?php endif; ?>
             <div class="connect-co-delivery-cost">Delivery cost:<br>
                 <?php if ($config['is_submitted'] == '1'): ?>
-                    <b><span><?php echo number_format($config['cc_order_amount'],2) ?></span></b> LKR
+                    <b><span><?php echo number_format($config['cc_delivery_charge'], 2) ?></span></b> LKR
                 <?php else: ?>
                     <b><span id="cc-delivery-cost">0.00</span></b> LKR
                 <?php endif; ?>
             </div>
             <?php if ($config['is_submitted'] == '1'): ?>
-                <span class="cc-show_details" id="cc-show_details">Show details</span>
+                <a href="javascript:void(0)"><span class="cc-show_details" id="cc-show_details">Show details</span></a>
             <?php endif; ?>
             <div class="cc-form-fields  <?php echo ($config['is_submitted'] == '1') ? 'cc-hide-records' : ''; ?>">
                 <?php
@@ -67,7 +67,7 @@
                 <br class="clear"/>
                 <br class="clear"/>
                 <input type="hidden" id="cc_order_id" name="cc_order_id" value="<?php echo $order->get_id(); ?>">
-                <input type="hidden" id="cc_delivery_charge" name="cc_delivery_charge"  >
+                <input type="hidden" id="cc_delivery_charge" name="cc_delivery_charge">
                 <button type="button" id="connect-co-submit" class="button"
                     <?php echo ($config['is_submitted'] == '1') ? 'disabled' : ''; ?>
                     <?php echo (!$config['delivery_city_availability']) ? 'disabled' : ''; ?>>

@@ -466,7 +466,7 @@ class Connect_Co_Admin
         //**END SET CONNECT CO DELIVERY INFORMATION SECTION FROM FIELDS**//
 
         $is_submitted = get_post_meta($order->get_id(), 'cc_submit', true);
-        $cc_order_amount = get_post_meta($order->get_id(), 'cc_order_amount', true);
+        $cc_delivery_charge = get_post_meta($order->get_id(), 'cc_delivery_charge', true);
 
         return array(
             'delivery_types' => $delivery_type_field_options,
@@ -480,7 +480,7 @@ class Connect_Co_Admin
             'cities' => $city_field_options,
             'delivery_city_availability' => $delivery_city_availability,
             'is_submitted' => $is_submitted,
-            'cc_order_amount' => $cc_order_amount,
+            'cc_delivery_charge' => $cc_delivery_charge,
         );
     }
 
@@ -598,7 +598,6 @@ class Connect_Co_Admin
                 }
 
                 $order_amount = $order->get_total();
-                $order_amount_with_delivery_charge = $order_amount + $cc_delivery_charge;
 
                 $city = $this->get_city_by_id($cc_city);
                 $city_name = '';
@@ -637,7 +636,7 @@ class Connect_Co_Admin
                     "contact_2" => "",
                     "location_url" => "",
                     "payment_type" => $cc_payment_type,
-                    "amount_to_be_collected" => $order_amount_with_delivery_charge,
+                    "amount_to_be_collected" => $order_amount,
                     "package_weight" => $cc_package_weight,
                     "package_size" => $cc_package_size,
                     "delivery_type" => $cc_delivery_type,
@@ -652,8 +651,8 @@ class Connect_Co_Admin
 
                 if ($response) {
                     if (isset($response->status) && $response->status == 'success') {
-                        if (!add_post_meta($order_id, 'cc_order_amount', $cc_delivery_charge, true)) {
-                            update_post_meta($order_id, 'cc_order_amount', $cc_delivery_charge);
+                        if (!add_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge, true)) {
+                            update_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge);
                         }
                         if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
                             update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);

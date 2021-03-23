@@ -32,12 +32,12 @@
 
         let env = $("input:radio[name='connect_co_api_environment']:checked").val()
 
-        $("input:radio[name='connect_co_api_environment']").on('change', function (){
-           if($(this).val() == 'test'){
-               $('.cc-test-api').show();
-           }else{
-               $('.cc-test-api').hide();
-           }
+        $("input:radio[name='connect_co_api_environment']").on('change', function () {
+            if ($(this).val() == 'test') {
+                $('.cc-test-api').show();
+            } else {
+                $('.cc-test-api').hide();
+            }
         });
 
     });
