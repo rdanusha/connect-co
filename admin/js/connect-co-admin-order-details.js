@@ -111,9 +111,9 @@
                         if (response.status == 'error') {
                             // cc_display_errors(response.message);
                             alert(response.message);
-                            $('#cc_delivery_type').val(1);
-                            $('.cc-delivery-date').hide();
-                            $('.cc-time-window').hide();
+                            // $('#cc_delivery_type').val(1);
+                            // $('.cc-delivery-date').hide();
+                            // $('.cc-time-window').hide();
                         }
                         if (response.status == 'success') {
                             $('#cc-error').fadeOut();
@@ -157,7 +157,6 @@
                         if (response.status == 'error') {
                             // cc_display_errors(response.message);
                             alert(response.message);
-                            $('#cc_payment_type').val(1);
                         }
                         if (response.status == 'success') {
                             $('#cc-error').fadeOut();
@@ -361,7 +360,7 @@
 
         $('#cc_payment_type').on('change', function () {
             let cc_payment_type = $('#cc_payment_type option:selected').val();
-            ;
+
             if (cc_payment_type == 2) { //cash on delivery
                 cc_check_cash_on_delivery_availability();
             }

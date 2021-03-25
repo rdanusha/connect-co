@@ -577,7 +577,7 @@ class Connect_Co_Admin
                 !empty($cc_package_weight) && !empty($cc_package_size) && !empty($cc_city) && !empty($order_id)
             ) {
 
-
+                $errors = false;
                 $order = wc_get_order($order_id);
                 $shipping_first_name = $order->get_shipping_first_name();
                 $shipping_last_name = $order->get_shipping_last_name();
@@ -623,88 +623,130 @@ class Connect_Co_Admin
                     $cc_time_window = '';
                 }
 
-                $args = array(
-                    "order_reference" => $order_id,
-                    "pickup_location" => $pickup_location,
-                    "pickup_lat" => $latitude,
-                    "pickup_lng" => $longitude,
-                    "customer_name" => $shipping_first_name . ' ' . $shipping_last_name,
-                    "customer_email" => $billing_email,
-                    "delivery_location" => implode(', ', $shipping_address),
-                    "nearest_delivery_location" => $city_name,
-                    "contact_1" => $billing_phone,
-                    "contact_2" => "",
-                    "location_url" => "",
-                    "payment_type" => $cc_payment_type,
-                    "amount_to_be_collected" => $order_amount,
-                    "package_weight" => $cc_package_weight,
-                    "package_size" => $cc_package_size,
-                    "delivery_type" => $cc_delivery_type,
-                    "scheduled_date" => $cc_scheduled_date,
-                    "scheduled_tw" => $cc_time_window,
-                    "notes" => $cc_notes,
-                    "order_items" => $order_items,
-                    "provider" => "W"
-                );
+                if ($cc_payment_type == 2) {
+                    $cash_on_delivery_availability_status = $this->get_cash_on_delivery_availability_status($cc_city);
 
-                $response = $this->create_connect_co_order($args);
+                    if (!$cash_on_delivery_availability_status) {
+                        $data = array(
+                            'status' => 'error',
+                            'message' => 'Cash on delivery option not available for the selected city'
+                        );
+                    }
+                    $errors = true;
+                }
 
-                if ($response) {
-                    if (isset($response->status) && $response->status == 'success') {
-                        if (!add_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge, true)) {
-                            update_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge);
+                if (!$errors) {
+
+                    $args = array("delivery_type" => $cc_delivery_type,
+                        "nearest_delivery_location_id" => $cc_city
+                    );
+
+                    $payment_methods_availability = $this->get_delivery_methods_availability($args);
+
+
+                    if (!$payment_methods_availability) {
+                        $message_text = '%s delivery option not available for the selected city';
+                        $delivery_type = '';
+                        if ($cc_delivery_type == 2) { //same day
+                            $delivery_type = 'Express';
                         }
-                        if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
-                            update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);
-                        }
-                        if (!add_post_meta($order_id, 'cc_payment_type', $cc_payment_type, true)) {
-                            update_post_meta($order_id, 'cc_payment_type', $cc_payment_type);
-                        }
-                        if (!add_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type, true)) {
-                            update_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type);
-                        }
-                        if (!add_post_meta($order_id, 'cc_package_weight', $cc_package_weight, true)) {
-                            update_post_meta($order_id, 'cc_package_weight', $cc_package_weight);
-                        }
-                        if (!add_post_meta($order_id, 'cc_package_size', $cc_package_size, true)) {
-                            update_post_meta($order_id, 'cc_package_size', $cc_package_size);
-                        }
-                        if (!add_post_meta($order_id, 'cc_notes', $cc_notes, true)) {
-                            update_post_meta($order_id, 'cc_notes', $cc_notes);
-                        }
-                        if (!add_post_meta($order_id, 'cc_city', $cc_city, true)) {
-                            update_post_meta($order_id, 'cc_city', $cc_city);
-                        }
-                        if (!add_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date, true)) {
-                            update_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date);
-                        }
-                        if (!add_post_meta($order_id, 'cc_time_window', $cc_time_window, true)) {
-                            update_post_meta($order_id, 'cc_time_window', $cc_time_window);
-                        }
-                        if (!add_post_meta($order_id, 'cc_submit', true, true)) {
-                            update_post_meta($order_id, 'cc_submit', true);
-                        }
-                        if (isset($response->order_tracking_link)) {
-                            if (!add_post_meta($order_id, 'cc_order_tracking_link', $response->order_tracking_link, true)) {
-                                update_post_meta($order_id, 'cc_order_tracking_link', true);
-                            }
+                        if ($cc_delivery_type == 3) {//scheduled
+                            $delivery_type = 'Scheduled';
                         }
                         $data = array(
-                            'status' => 'success',
-                            'message' => array('Order successfully submitted')
+                            'status' => 'error',
+                            'message' => sprintf($message_text, $delivery_type)
                         );
-                    } else {
+                        $errors = true;
+                    }
+                }
 
-                        if ($response == !null) {
-                            $error_text = '<ul class="connect-co-error-items">';
-                            foreach ($response as $errors) {
-                                $error_text .= '<li> - ' . $errors[0] . '</li>';
+
+                if (!$errors) {
+
+                    $args = array(
+                        "order_reference" => $order_id,
+                        "pickup_location" => $pickup_location,
+                        "pickup_lat" => $latitude,
+                        "pickup_lng" => $longitude,
+                        "customer_name" => $shipping_first_name . ' ' . $shipping_last_name,
+                        "customer_email" => $billing_email,
+                        "delivery_location" => implode(', ', $shipping_address),
+                        "nearest_delivery_location" => $city_name,
+                        "contact_1" => $billing_phone,
+                        "contact_2" => "",
+                        "location_url" => "",
+                        "payment_type" => $cc_payment_type,
+                        "amount_to_be_collected" => $order_amount,
+                        "package_weight" => $cc_package_weight,
+                        "package_size" => $cc_package_size,
+                        "delivery_type" => $cc_delivery_type,
+                        "scheduled_date" => $cc_scheduled_date,
+                        "scheduled_tw" => $cc_time_window,
+                        "notes" => $cc_notes,
+                        "order_items" => $order_items,
+                        "provider" => "W"
+                    );
+
+                    $response = $this->create_connect_co_order($args);
+
+                    if ($response) {
+                        if (isset($response->status) && $response->status == 'success') {
+                            if (!add_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge, true)) {
+                                update_post_meta($order_id, 'cc_delivery_charge', $cc_delivery_charge);
                             }
-                            $error_text .= '</ul>';
+                            if (!add_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location, true)) {
+                                update_post_meta($order_id, 'cc_pickup_location', $cc_pickup_location);
+                            }
+                            if (!add_post_meta($order_id, 'cc_payment_type', $cc_payment_type, true)) {
+                                update_post_meta($order_id, 'cc_payment_type', $cc_payment_type);
+                            }
+                            if (!add_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type, true)) {
+                                update_post_meta($order_id, 'cc_delivery_type', $cc_delivery_type);
+                            }
+                            if (!add_post_meta($order_id, 'cc_package_weight', $cc_package_weight, true)) {
+                                update_post_meta($order_id, 'cc_package_weight', $cc_package_weight);
+                            }
+                            if (!add_post_meta($order_id, 'cc_package_size', $cc_package_size, true)) {
+                                update_post_meta($order_id, 'cc_package_size', $cc_package_size);
+                            }
+                            if (!add_post_meta($order_id, 'cc_notes', $cc_notes, true)) {
+                                update_post_meta($order_id, 'cc_notes', $cc_notes);
+                            }
+                            if (!add_post_meta($order_id, 'cc_city', $cc_city, true)) {
+                                update_post_meta($order_id, 'cc_city', $cc_city);
+                            }
+                            if (!add_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date, true)) {
+                                update_post_meta($order_id, 'cc_scheduled_date', $cc_scheduled_date);
+                            }
+                            if (!add_post_meta($order_id, 'cc_time_window', $cc_time_window, true)) {
+                                update_post_meta($order_id, 'cc_time_window', $cc_time_window);
+                            }
+                            if (!add_post_meta($order_id, 'cc_submit', true, true)) {
+                                update_post_meta($order_id, 'cc_submit', true);
+                            }
+                            if (isset($response->order_tracking_link)) {
+                                if (!add_post_meta($order_id, 'cc_order_tracking_link', $response->order_tracking_link, true)) {
+                                    update_post_meta($order_id, 'cc_order_tracking_link', true);
+                                }
+                            }
                             $data = array(
-                                'status' => 'error',
-                                'message' => array($error_text)
+                                'status' => 'success',
+                                'message' => array('Order successfully submitted')
                             );
+                        } else {
+
+                            if ($response == !null) {
+                                $error_text = '<ul class="connect-co-error-items">';
+                                foreach ($response as $errors) {
+                                    $error_text .= '<li> - ' . $errors[0] . '</li>';
+                                }
+                                $error_text .= '</ul>';
+                                $data = array(
+                                    'status' => 'error',
+                                    'message' => array($error_text)
+                                );
+                            }
                         }
                     }
                 }
