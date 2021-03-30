@@ -262,28 +262,32 @@ class Connect_Co_Admin
                     json_encode(array('error', 'Please choose API environment', false)));
                 $error = true;
             }
-            if ($api_environment == 'live' && empty($live_api_key)) {
-                update_option('connect_co_admin_notification',
-                    json_encode(array('error', 'Connect Co. live API key can\'t be empty.', false)));
-                $error = true;
-            } else {
-                $validate_live_api_key = $this->validate_api_key($api_environment, $live_api_key);
-                if (!$validate_live_api_key) {
+            if ($api_environment == 'live') {
+                if (empty($live_api_key)) {
                     update_option('connect_co_admin_notification',
-                        json_encode(array('error', 'Connect Co. live API key is invalid', false)));
+                        json_encode(array('error', 'Connect Co. live API key can\'t be empty.', false)));
                     $error = true;
+                } else {
+                    $validate_live_api_key = $this->validate_api_key($api_environment, $live_api_key);
+                    if (!$validate_live_api_key) {
+                        update_option('connect_co_admin_notification',
+                            json_encode(array('error', 'Connect Co. live API key is invalid', false)));
+                        $error = true;
+                    }
                 }
             }
-            if ($api_environment == 'test' && empty($test_api_key)) {
-                update_option('connect_co_admin_notification',
-                    json_encode(array('error', 'Connect Co. test API key can\'t be empty.', false)));
-                $error = true;
-            } else {
-                $validate_test_api_key = $this->validate_api_key($api_environment, $test_api_key);
-                if (!$validate_test_api_key) {
+            if ($api_environment == 'test') {
+                if (empty($test_api_key)) {
                     update_option('connect_co_admin_notification',
-                        json_encode(array('error', 'Connect Co. test API key is invalid.', false)));
+                        json_encode(array('error', 'Connect Co. test API key can\'t be empty.', false)));
                     $error = true;
+                } else {
+                    $validate_test_api_key = $this->validate_api_key($api_environment, $test_api_key);
+                    if (!$validate_test_api_key) {
+                        update_option('connect_co_admin_notification',
+                            json_encode(array('error', 'Connect Co. test API key is invalid.', false)));
+                        $error = true;
+                    }
                 }
             }
             if ($average_weight_per_package == 0) {
