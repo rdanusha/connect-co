@@ -639,7 +639,7 @@ class Connect_Co_Admin
                     $errors = true;
                 }
 
-                if (!$errors) {
+                if ($cc_delivery_type == 2 || $cc_delivery_type == 3) {
 
                     $args = array("delivery_type" => $cc_delivery_type,
                         "nearest_delivery_location_id" => $cc_city
@@ -754,7 +754,6 @@ class Connect_Co_Admin
                         }
                     }
                 }
-
             } else {
                 $data = array(
                     'status' => 'error',
