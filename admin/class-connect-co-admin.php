@@ -470,6 +470,8 @@ class Connect_Co_Admin
         //**END SET CONNECT CO DELIVERY INFORMATION SECTION FROM FIELDS**//
 
         $is_submitted = get_post_meta($order->get_id(), 'cc_submit', true);
+        $cc_scheduled_date = get_post_meta($order->get_id(), 'cc_scheduled_date', true);
+        $cc_time_window = get_post_meta($order->get_id(), 'cc_time_window', true);
         $cc_delivery_charge = get_post_meta($order->get_id(), 'cc_delivery_charge', true);
 
         return array(
@@ -485,6 +487,8 @@ class Connect_Co_Admin
             'delivery_city_availability' => $delivery_city_availability,
             'is_submitted' => $is_submitted,
             'cc_delivery_charge' => $cc_delivery_charge,
+            'cc_scheduled_date' => $cc_scheduled_date,
+            'cc_time_window' => $cc_time_window,
         );
     }
 
@@ -635,8 +639,9 @@ class Connect_Co_Admin
                             'status' => 'error',
                             'message' => 'Cash on delivery option not available for the selected city'
                         );
+                        $errors = true;
                     }
-                    $errors = true;
+
                 }
 
                 if ($cc_delivery_type == 2 || $cc_delivery_type == 3) {

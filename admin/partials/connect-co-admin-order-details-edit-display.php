@@ -26,7 +26,7 @@
             <div id="cc-success" class="connect-co-success" style="display: none"></div>
             <div id="cc-error" class="connect-co-error" style="display: none"></div>
 
-            <?php if (!$config['delivery_city_availability']): ?>
+            <?php if (!$config['delivery_city_availability'] && $config['is_submitted'] != '1'): ?>
                 <div class="connect-co-error">
                     <?php
                     $message = 'Connect Co. delivery is not available for the city of shipping address. Please choose the nearest city.';
@@ -54,12 +54,14 @@
                 woocommerce_wp_select($config['cities']);
                 woocommerce_wp_select($config['delivery_types']);
                 ?>
-                <div class="cc-delivery-date" style="display: none">
+                <?php $display_scheduled_date = ($config['is_submitted'] == '1' && $config['cc_scheduled_date'] !='') ? '' : 'style="display: none"'; ?>
+                <div class="cc-delivery-date" <?php echo $display_scheduled_date; ?> >
                     <?php
                     woocommerce_wp_text_input($config['scheduled_date']);
                     ?>
                 </div>
-                <div class="cc-time-window" style="display: none">
+                <?php $display_time_window = ($config['is_submitted'] == '1' && $config['cc_time_window'] !='') ? '' : 'style="display: none"'; ?>
+                <div class="cc-time-window"  <?php echo $display_time_window; ?> >
                     <?php
                     woocommerce_wp_select($config['time_window']);
                     ?>
@@ -76,7 +78,7 @@
             </div>
         </div>
     </div>
-<?php if (!$config['delivery_city_availability']): ?>
+<?php if (!$config['delivery_city_availability'] && $config['is_submitted'] != '1'): ?>
     <?php
     $class = 'error';
     $is_dismissible = '';
